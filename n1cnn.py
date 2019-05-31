@@ -11,8 +11,8 @@ import mymodule as mine
 tf.logging.set_verbosity(tf.logging.INFO)
 
 # Input data
-target, width, height = mine.makeImage('/home2/bamboo/NeuralNetForPredict/Images/n1/ewpLH-ImgRes_0.dig')
-low, width, height = mine.makeImage('/home2/bamboo/NeuralNetForPredict/Images/n1/ewpLH-LImgRes_0.dig')
+target = mine.makeImage('/home2/bamboo/NeuralNetForPredict/Images/n1/ewpLH-ImgRes_0.dig')
+low = mine.makeImage('/home2/bamboo/NeuralNetForPredict/Images/n1/ewpLH-LImgRes_0.dig')
 
 # Define the size of extract block and the number of targets
 numberOfTargets = 2
@@ -63,11 +63,7 @@ def cnn_model_fn(features, labels, mode):
     logits = tf.layers.dense(inputs=dropout, units=2)
 
     predictions = {
-        # Generate predictions (for PREDICT and EVAL mode)
-        "classes": tf.argmax(input=logits, axis=1),
-        # Add `softmax_tensor` to the graph. It is used for PREDICT and by the
-        # `logging_hook`.
-        "probabilities": tf.nn.softmax(logits, name="softmax_tensor")
+        "probabilities": tf.nn.leaky_relu(logits, alpha=1.0, name="linear_tensor")
     }
 
     if mode == tf.estimator.ModeKeys.PREDICT:
@@ -87,17 +83,18 @@ def cnn_model_fn(features, labels, mode):
     # Add evaluation metrics (for EVAL mode)
     eval_metric_ops = {
         "accuracy": tf.metrics.accuracy(
-            labels=labels, predictions=predictions["classes"])
+            labels=labels, predictions=predictions["probabilities"])
     }
     return tf.estimator.EstimatorSpec(
         mode=mode, loss=loss, eval_metric_ops=eval_metric_ops)
+
 
 # Create the Estimator
 pixel_estimator = tf.estimator.Estimator(
     model_fn=cnn_model_fn, model_dir="/tmp/n1_CNN")
 
 # Set up logging for predictions
-tensors_to_log = {"probabilities": "softmax_tensor"}
+tensors_to_log = {"probabilities": "linear_tensor"}
 
 logging_hook = tf.train.LoggingTensorHook(
     tensors=tensors_to_log, every_n_iter=50)
@@ -115,3 +112,21 @@ pixel_estimator.train(
     input_fn=train_input_fn,
     steps=1,
     hooks=[logging_hook])
+
+# train the model for num steps
+pixel_estimator.train(input_fn=train_input_fn, steps=50000)
+
+# Get eval data
+target_eval = mine.makeImage('/home2/bamboo/NeuralNetForPredict/Images/n2/ewpLH-ImgRes_0.dig')
+low_eval = mine.makeImage('/home2/bamboo/NeuralNetForPredict/Images/n2/ewpLH-LImgRes_0.dig')
+eval_x, eval_label, size_block = mine.makeDataset(target_eval, low_eval, width_block, height_block, width_low, height_low, numberOfTargets)
+
+# Evaluate the model
+eval_input_fn = tf.estimator.inputs.numpy_input_fn(
+    x={"x": eval_x},
+    y=eval_label,
+    num_epochs=1,
+    shuffle=False)
+
+eval_results = pixel_estimator.evaluate(input_fn=eval_input_fn)
+print(eval_results)
