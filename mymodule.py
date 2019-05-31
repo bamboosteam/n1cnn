@@ -14,7 +14,7 @@ def makeImage(path):
         img_target.append(data)
     fI.close()
     result = numpy.array(img_target).reshape(nyI, nxI)
-    return result, nxI, nyI
+    return result
 
 def makeDataset(target, low, width_block, height_block, width_low, height_low, numberOfTargets):
     height = len(target)
