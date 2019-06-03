@@ -1,5 +1,6 @@
 import numpy
 import struct
+import math
 
 def makeImage(path):
     fI = open('{}'.format(path), 'rb')
@@ -23,7 +24,7 @@ def makeDataset(target, low, width_block, height_block, width_low, height_low, n
     size_block = width_block * height_block
     size_low = width_low * height_low
     size_target = width_target * height_target
-    halfOfWidthBlock = int(width_block * 0.5)
+    halfOfWidthBlock = int(math.ceil(width_block / 2))
     arr_data = []
     for y in range(height - height_block + 1):
         for x in range(0, width - width_block + 1, numberOfTargets):
